@@ -1,9 +1,8 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
-import { safeNextPath, signIn, signOut } from "@/lib/auth";
+import { createSession, safeNextPath, signOut } from "@/lib/auth";
+import { signInWithPassword } from "@/lib/firebase-auth";
 
 export type AuthState = { error?: string };
 
@@ -15,12 +14,16 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
     return { error: "Ingrese su correo y su contraseña." };
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-    return { error: "Correo o contraseña incorrectos." };
+  let user;
+  try {
+    const idToken = await signInWithPassword(email, password);
+    if (!idToken) return { error: "Correo o contraseña incorrectos." };
+    user = await createSession(idToken);
+  } catch (error) {
+    console.error(error);
+    return { error: "No se pudo contactar a Firebase. Revise la configuración del entorno." };
   }
-
-  await signIn(user.id);
+  if (!user) return { error: "La cuenta no tiene un perfil en Aura." };
   redirect(safeNextPath(formData.get("next"), user.role));
 }
 

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { CreateUserForm, RoleForm } from "@/components/UsersManager";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { ROLE_LABEL, type AppRole } from "@/lib/labels";
+import { listDuos, listUsers } from "@/lib/repository";
 
 export const metadata: Metadata = { title: "Usuarios" };
 
@@ -10,20 +10,7 @@ const roleOrder: Record<AppRole, number> = { ADMIN: 0, EMPLOYEE: 1, CLIENT: 2 };
 
 export default async function UsuariosPage() {
   const admin = await requireUser("ADMIN");
-  const [users, duos] = await Promise.all([
-    prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        role: true,
-        duoRole: true,
-        duo: { select: { name: true } },
-      },
-    }),
-    prisma.duo.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-  ]);
+  const [users, duos] = await Promise.all([listUsers(), listDuos()]);
 
   const ordered = [...users].sort((a, b) => {
     const byRole = roleOrder[a.role as AppRole] - roleOrder[b.role as AppRole];
@@ -53,7 +40,7 @@ export default async function UsuariosPage() {
                   <p className="text-sm text-muted">{person.email}</p>
                   <p className="text-sm text-muted">
                     {ROLE_LABEL[person.role as AppRole]}
-                    {person.duo ? ` · ${person.duo.name}` : ""}
+                    {person.duoName ? ` · ${person.duoName}` : ""}
                     {person.duoRole ? ` · ${person.duoRole}` : ""}
                     {person.phone ? ` · ${person.phone}` : ""}
                   </p>

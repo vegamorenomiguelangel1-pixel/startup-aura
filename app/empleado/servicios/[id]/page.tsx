@@ -3,7 +3,7 @@ import { StatusActions } from "@/components/StatusActions";
 import { ServiceDetail } from "@/components/ServiceDetail";
 import { requireUser } from "@/lib/auth";
 import { EMPLOYEE_TRANSITIONS, type Status } from "@/lib/labels";
-import { getService } from "@/lib/services";
+import { getService } from "@/lib/repository";
 
 export const metadata = { title: "Servicio" };
 

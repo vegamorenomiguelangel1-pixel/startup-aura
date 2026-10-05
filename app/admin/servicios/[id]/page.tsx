@@ -3,9 +3,8 @@ import { AdminStatusForm } from "@/components/AdminStatusForm";
 import { AssignForm } from "@/components/AssignForm";
 import { ServiceDetail } from "@/components/ServiceDetail";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { isHistoryStatus, type Status } from "@/lib/labels";
-import { getService } from "@/lib/services";
+import { getService, listDuos, listEmployees } from "@/lib/repository";
 
 export const metadata = { title: "Asignar servicio" };
 
@@ -16,24 +15,7 @@ export default async function AdminServicioPage({
 }) {
   await requireUser("ADMIN");
   const { id } = await params;
-  const [service, employees, duos] = await Promise.all([
-    getService(id),
-    prisma.user.findMany({
-      where: { role: "EMPLOYEE" },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-        duoRole: true,
-        duoId: true,
-        duo: { select: { name: true } },
-      },
-    }),
-    prisma.duo.findMany({
-      orderBy: { name: "asc" },
-      include: { members: { where: { role: "EMPLOYEE" }, select: { id: true } } },
-    }),
-  ]);
+  const [service, employees, duos] = await Promise.all([getService(id), listEmployees(), listDuos()]);
 
   if (!service) notFound();
 
@@ -67,12 +49,12 @@ export default async function AdminServicioPage({
             name: employee.name,
             duoRole: employee.duoRole,
             duoId: employee.duoId,
-            duoName: employee.duo?.name ?? null,
+            duoName: employee.duoName,
           }))}
           duos={duos.map((duo) => ({
             id: duo.id,
             name: duo.name,
-            memberIds: duo.members.map((member) => member.id),
+            memberIds: duo.memberIds,
           }))}
         />
       </section>

@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ServiceCard } from "@/components/ServiceCard";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { greeting } from "@/lib/format";
 import {
   isHistoryStatus,
   isStatus,
   ROLE_LABEL,
+  ROLES,
   STATUS_LABEL,
   STATUSES,
   type AppRole,
   type Status,
 } from "@/lib/labels";
-import { serviceInclude } from "@/lib/services";
+import { listServices, listUsers } from "@/lib/repository";
 
 export const metadata: Metadata = { title: "Servicios" };
 
@@ -26,25 +26,15 @@ export default async function AdminPage({
   const { estado } = await searchParams;
   const statusFilter = estado && isStatus(estado) ? estado : undefined;
 
-  const [services, grouped, people] = await Promise.all([
-    prisma.service.findMany({
-      where: statusFilter ? { status: statusFilter } : undefined,
-      include: serviceInclude,
-      orderBy: { scheduledAt: "asc" },
-    }),
-    prisma.service.groupBy({
-      by: ["status"],
-      _count: { _all: true },
-    }),
-    prisma.user.groupBy({
-      by: ["role"],
-      _count: { _all: true },
-    }),
-  ]);
-
+  const [allServices, people] = await Promise.all([listServices(), listUsers()]);
   const counts = Object.fromEntries(STATUSES.map((status) => [status, 0])) as Record<Status, number>;
-  for (const row of grouped) counts[row.status] = row._count._all;
-  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  for (const service of allServices) counts[service.status] += 1;
+  const total = allServices.length;
+  const services = statusFilter
+    ? allServices.filter((service) => service.status === statusFilter)
+    : allServices;
+  const roleCounts = Object.fromEntries(ROLES.map((role) => [role, 0])) as Record<AppRole, number>;
+  for (const person of people) roleCounts[person.role] += 1;
 
   const listed = services.map((service) => ({
     id: service.id,
@@ -61,8 +51,8 @@ export default async function AdminPage({
     .filter((service) => isHistoryStatus(service.status))
     .sort((a, b) => b.scheduledAt.getTime() - a.scheduledAt.getTime());
 
-  const peopleLine = people
-    .map((row) => `${row._count._all} ${ROLE_LABEL[row.role as AppRole].toLowerCase()}`)
+  const peopleLine = ROLES.filter((role) => roleCounts[role] > 0)
+    .map((role) => `${roleCounts[role]} ${ROLE_LABEL[role].toLowerCase()}`)
     .join(" · ");
 
   return (

@@ -2,20 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ServiceSections, type ListedService } from "@/components/ServiceSections";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { greeting } from "@/lib/format";
 import type { Status } from "@/lib/labels";
-import { serviceInclude } from "@/lib/services";
+import { listServices } from "@/lib/repository";
 
 export const metadata: Metadata = { title: "Mis servicios" };
 
 export default async function ClientePage() {
   const user = await requireUser("CLIENT");
-  const services = await prisma.service.findMany({
-    where: { clientId: user.id },
-    include: serviceInclude,
-    orderBy: { scheduledAt: "asc" },
-  });
+  const services = await listServices({ clientId: user.id });
 
   const listed: ListedService[] = services.map((service) => ({
     id: service.id,

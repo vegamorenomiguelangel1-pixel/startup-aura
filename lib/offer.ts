@@ -50,6 +50,7 @@ export const DEMO_ACCOUNTS = [
 ] as const;
 
 export const DEMO_DUO = {
+  id: "duo-inclusivo-1",
   name: "Dúo Inclusivo 1",
   description: "Persona con discapacidad o tutor, junto a un compañero de apoyo.",
 } as const;

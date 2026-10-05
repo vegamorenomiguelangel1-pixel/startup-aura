@@ -1,11 +1,9 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { Prisma, type Role } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { isRole, type AppRole } from "@/lib/labels";
+import { createAppUser, getUser, listDuos, updateUserRole as saveRole } from "@/lib/repository";
 
 export type ActionResult = { error?: string; success?: string };
 
@@ -23,7 +21,7 @@ export async function createUser(
   const phone = clean(formData.get("phone"), 20);
   const password = String(formData.get("password") ?? "");
   const roleValue = String(formData.get("role") ?? "");
-  const duoId = clean(formData.get("duoId"), 40);
+  const duoId = clean(formData.get("duoId"), 128);
   const duoRole = clean(formData.get("duoRole"), 80);
 
   if (name.length < 3) return { error: "Escriba el nombre completo." };
@@ -41,28 +39,24 @@ export async function createUser(
   const role = roleValue as AppRole;
   let linkedDuo: string | null = null;
   if (role === "EMPLOYEE" && duoId) {
-    const duo = await prisma.duo.findUnique({ where: { id: duoId } });
-    if (!duo) return { error: "No encontramos ese dúo." };
-    linkedDuo = duo.id;
+    const duos = await listDuos();
+    if (!duos.some((duo) => duo.id === duoId)) return { error: "No encontramos ese dúo." };
+    linkedDuo = duoId;
   }
 
-  try {
-    await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash: await bcrypt.hash(password, 10),
-        role: role as Role,
-        phone: phone || null,
-        duoId: linkedDuo,
-        duoRole: role === "EMPLOYEE" && duoRole ? duoRole : null,
-      },
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { error: "Ese correo ya está registrado." };
-    }
-    return { error: "No se pudo crear el usuario." };
+  const created = await createAppUser({
+    name,
+    email,
+    password,
+    role,
+    phone: phone || null,
+    duoId: linkedDuo,
+    duoRole: role === "EMPLOYEE" && duoRole ? duoRole : null,
+  });
+  if ("error" in created) {
+    return {
+      error: created.error === "exists" ? "Ese correo ya está registrado." : "No se pudo crear el usuario.",
+    };
   }
 
   revalidatePath("/admin/usuarios");
@@ -74,24 +68,18 @@ export async function updateUserRole(
   formData: FormData,
 ): Promise<ActionResult> {
   const admin = await requireUser("ADMIN");
-  const userId = clean(formData.get("userId"), 40);
+  const userId = clean(formData.get("userId"), 128);
   const roleValue = String(formData.get("role") ?? "");
   if (!isRole(roleValue)) return { error: "Elija un rol." };
   if (userId === admin.id) {
     return { error: "No puede cambiar su propio rol." };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await getUser(userId);
   if (!user) return { error: "No encontramos a esa persona." };
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      role: roleValue as Role,
-      duoId: roleValue === "EMPLOYEE" ? user.duoId : null,
-      duoRole: roleValue === "EMPLOYEE" ? user.duoRole : null,
-    },
-  });
+  const saved = await saveRole(userId, roleValue);
+  if (!saved) return { error: "No encontramos a esa persona." };
   revalidatePath("/admin/usuarios");
   return { success: "Rol actualizado." };
 }

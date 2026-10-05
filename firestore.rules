@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Aura talks to Firestore only through the Admin SDK on the server.
+    // That SDK bypasses these rules. Denying client access keeps a public
+    // web API key from reading or writing jobs directly.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

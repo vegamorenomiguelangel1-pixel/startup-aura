@@ -1,20 +1,15 @@
 import type { Metadata } from "next";
 import { ServiceSections, type ListedService } from "@/components/ServiceSections";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { greeting } from "@/lib/format";
 import type { Status } from "@/lib/labels";
-import { serviceInclude } from "@/lib/services";
+import { listServices } from "@/lib/repository";
 
 export const metadata: Metadata = { title: "Mis servicios" };
 
 export default async function EmpleadoPage() {
   const user = await requireUser("EMPLOYEE");
-  const services = await prisma.service.findMany({
-    where: { assignments: { some: { employeeId: user.id } } },
-    include: serviceInclude,
-    orderBy: { scheduledAt: "asc" },
-  });
+  const services = await listServices({ assigneeId: user.id });
 
   const listed: ListedService[] = services.map((service) => ({
     id: service.id,

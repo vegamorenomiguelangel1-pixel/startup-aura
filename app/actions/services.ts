@@ -2,9 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Prisma, type ServiceStatus } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { parseBoliviaDatetimeLocal } from "@/lib/format";
 import {
   EMPLOYEE_TRANSITIONS,
@@ -14,6 +12,7 @@ import {
   type Status,
 } from "@/lib/labels";
 import { OFFER } from "@/lib/offer";
+import { createService as saveService, getService, listUsers, updateService } from "@/lib/repository";
 
 export type ActionResult = { error?: string; success?: string };
 
@@ -54,21 +53,18 @@ export async function createService(
     return { error: "La fecha no puede pasar de un año." };
   }
 
-  const service = await prisma.service.create({
-    data: {
-      address,
-      zone: zone || null,
-      notes: notes || null,
-      scheduledAt: when,
-      durationHours: OFFER.durationHours,
-      priceBs: OFFER.priceBs,
-      status: "SOLICITADO",
-      clientId: user.id,
-    },
+  const id = await saveService({
+    address,
+    zone: zone || null,
+    notes: notes || null,
+    scheduledAt: when,
+    durationHours: OFFER.durationHours,
+    priceBs: OFFER.priceBs,
+    clientId: user.id,
   });
 
-  revalidateService(service.id);
-  redirect(`/cliente/servicios/${service.id}?nueva=1`);
+  revalidateService(id);
+  redirect(`/cliente/servicios/${id}?nueva=1`);
 }
 
 export async function updateServiceStatus(
@@ -76,14 +72,11 @@ export async function updateServiceStatus(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireUser();
-  const id = cleanText(formData.get("serviceId"), 40);
+  const id = cleanText(formData.get("serviceId"), 128);
   const nextStatus = String(formData.get("status") ?? "");
   if (!isStatus(nextStatus)) return { error: "Estado no válido." };
 
-  const service = await prisma.service.findUnique({
-    where: { id },
-    include: { assignments: true },
-  });
+  const service = await getService(id);
   if (!service) return { error: "No encontramos el servicio." };
 
   if (user.role === "CLIENT") {
@@ -99,16 +92,13 @@ export async function updateServiceStatus(
   } else if (user.role === "EMPLOYEE") {
     const assigned = service.assignments.some((item) => item.employeeId === user.id);
     if (!assigned) return { error: "Este servicio no está asignado a usted." };
-    const allowed = EMPLOYEE_TRANSITIONS[service.status as Status];
+    const allowed = EMPLOYEE_TRANSITIONS[service.status];
     if (!allowed.includes(nextStatus)) {
       return { error: "Ese cambio de estado no está permitido." };
     }
   }
 
-  await prisma.service.update({
-    where: { id },
-    data: { status: nextStatus as ServiceStatus },
-  });
+  await updateService(id, { status: nextStatus });
   revalidateService(id);
   return { success: "Estado actualizado." };
 }
@@ -118,7 +108,7 @@ export async function assignEmployees(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireUser("ADMIN");
-  const id = cleanText(formData.get("serviceId"), 40);
+  const id = cleanText(formData.get("serviceId"), 128);
   const ids = [
     ...new Set(
       formData
@@ -128,43 +118,20 @@ export async function assignEmployees(
     ),
   ];
 
-  const service = await prisma.service.findUnique({ where: { id } });
+  const service = await getService(id);
   if (!service) return { error: "No encontramos el servicio." };
 
-  const employees = await prisma.user.findMany({
-    where: { id: { in: ids }, role: "EMPLOYEE" },
-    select: { id: true },
-  });
+  const people = await listUsers();
+  const employees = people.filter((person) => ids.includes(person.id) && person.role === "EMPLOYEE");
   if (employees.length !== ids.length) {
     return { error: "Hay una persona que no es empleada." };
   }
 
-  let nextStatus = service.status;
+  let nextStatus: Status = service.status;
   if (service.status === "SOLICITADO" && ids.length > 0) nextStatus = "ASIGNADO";
   if (service.status === "ASIGNADO" && ids.length === 0) nextStatus = "SOLICITADO";
 
-  try {
-    await prisma.$transaction([
-      prisma.assignment.deleteMany({ where: { serviceId: id } }),
-      ...(ids.length
-        ? [
-            prisma.assignment.createMany({
-              data: ids.map((employeeId) => ({ serviceId: id, employeeId })),
-            }),
-          ]
-        : []),
-      prisma.service.update({
-        where: { id },
-        data: { status: nextStatus },
-      }),
-    ]);
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      return { error: "No se pudo guardar la asignación." };
-    }
-    throw error;
-  }
-
+  await updateService(id, { assigneeIds: ids, status: nextStatus });
   revalidateService(id);
   const moved =
     nextStatus !== service.status
@@ -183,20 +150,17 @@ export async function adminSetStatus(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireUser("ADMIN");
-  const id = cleanText(formData.get("serviceId"), 40);
+  const id = cleanText(formData.get("serviceId"), 128);
   const nextStatus = String(formData.get("status") ?? "");
   if (!isStatus(nextStatus) || !STATUSES.includes(nextStatus)) {
     return { error: "Estado no válido." };
   }
-  const service = await prisma.service.findUnique({ where: { id } });
+  const service = await getService(id);
   if (!service) return { error: "No encontramos el servicio." };
   if (isHistoryStatus(service.status) && nextStatus === service.status) {
     return { success: "Sin cambios." };
   }
-  await prisma.service.update({
-    where: { id },
-    data: { status: nextStatus as ServiceStatus },
-  });
+  await updateService(id, { status: nextStatus });
   revalidateService(id);
   return { success: "Estado actualizado." };
 }
