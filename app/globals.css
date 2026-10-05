@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --color-ink: #1c1915;
+  --color-muted: #4a433a;
+  --color-paper: #f4f0e8;
+  --color-card: #fffcf7;
+  --color-line: #e3d9c8;
+  --color-pine: #0f5c4c;
+  --color-pine-dark: #0a3f34;
+  --color-gold: #e2b657;
+  --color-gold-deep: #7a5b0e;
+  --color-gold-soft: #f8efd4;
+  --color-clay: #8c3a2f;
+  --color-clay-soft: #f8e8e4;
+  --color-sky-soft: #e5f0ee;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+::selection {
+  background: #e2b657;
+  color: #1c1915;
+}
+
+:focus-visible {
+  outline: 3px solid #0f5c4c;
+  outline-offset: 2px;
+}
+
+button:not(:disabled),
+summary,
+label:has(input) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+input,
+select,
+textarea {
+  accent-color: #0f5c4c;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 50;
+  transform: translateY(-200%);
+  background: white;
+  color: #1c1915;
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility field {
+  min-height: 3rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-line);
+  background: #fff;
+  padding: 0.5rem 0.75rem;
+}
+
+@media (forced-colors: active) {
+  .card {
+    border: 1px solid CanvasText;
+  }
+}
