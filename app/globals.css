@@ -98,8 +98,13 @@ textarea {
   padding: 0.5rem 0.75rem;
 }
 
+.on-pine :focus-visible {
+  outline-color: #fffcf7;
+}
+
 @media (forced-colors: active) {
-  .card {
+  .card,
+  .on-pine {
     border: 1px solid CanvasText;
   }
 }
