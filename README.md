@@ -16,7 +16,7 @@ Los roles siguen siendo cliente, empleado y administración. La interfaz sigue e
 
 ## Proyecto de Firebase
 
-1. Cree un proyecto en [Firebase console](https://console.firebase.google.com/). No hace falta activar facturación de Blaze para esta versión: Authentication y Firestore en el plan Spark alcanzan para el panel.
+1. Cree un proyecto en [Firebase console](https://console.firebase.google.com/). Authentication y Firestore funcionan en el plan Spark. Publicar la aplicación en una URL pública exige el plan **Blaze**; los pasos están en «Publicar en una URL pública».
 2. En **Authentication → Sign-in method**, active **Correo electrónico/contraseña**. No exija verificación de correo.
 3. En **Firestore Database**, cree la base en **modo de producción**.
 4. En **Project settings → General**, registre una app web y copie la configuración.
@@ -64,6 +64,94 @@ npm run dev:emulator
 
 Hace falta Java (el emulador de Firestore lo usa). El comando levanta Authentication en el puerto 9099, Firestore en el 8080, siembra la demo y abre Next.js.
 
+## Publicar en una URL pública
+
+El panel se publica con **Firebase App Hosting** (Next.js en Cloud Build, servido por HTTPS). Cualquier dispositivo abre la URL que entrega Firebase. La forma es:
+
+`https://aura--SU-PROYECTO.southamerica-east1.hosted.app`
+
+`aura` es el id del backend en `firebase.json`. La consola muestra la dirección exacta al terminar el primer despliegue. Este repositorio no incluye una URL en vivo: hace falta el proyecto de Firebase de Aura, una cuenta de Google con permiso sobre ese proyecto y los secretos de abajo. No se commitean.
+
+### Variables de producción
+
+Son las de `.env.example`. En App Hosting se guardan en Cloud Secret Manager, con los nombres que ya cita `apphosting.yaml`. No pegue los valores en ese archivo.
+
+| Variable | Cuándo hace falta | Origen |
+| --- | --- | --- |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Compilación y ejecución. Next.js la incrusta al compilar. | App web → `apiKey` |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Compilación y ejecución | App web → `authDomain` (`su-proyecto.firebaseapp.com`) |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Compilación y ejecución | App web → `projectId` |
+| `FIREBASE_PROJECT_ID` | Compilación y ejecución | El mismo `projectId` |
+| `FIREBASE_CLIENT_EMAIL` | Ejecución (Admin SDK) | Cuenta de servicio → `client_email` |
+| `FIREBASE_PRIVATE_KEY` | Ejecución (Admin SDK) | Cuenta de servicio → `private_key`, una sola línea con `\n` |
+
+No defina `FIRESTORE_EMULATOR_HOST` ni `FIREBASE_AUTH_EMULATOR_HOST` en producción.
+
+La clave web se usa en el servidor para validar el correo y la contraseña. Si en Google Cloud (**APIs y servicios → Credenciales**) esa clave está limitada por referentes HTTP, el ingreso desde App Hosting falla, porque la llamada no sale del navegador. Déjela sin esa restricción, o use una clave que permita Identity Toolkit sin referentes. No es la clave privada de la cuenta de servicio, y tampoco se sube al repositorio.
+
+### Pasos
+
+1. En el proyecto de Firebase, pase al plan **Blaze**.
+2. Deje listos Authentication (correo/contraseña, sin verificación de correo), Firestore en modo de producción y las reglas de `firestore.rules`.
+3. Autorice la CLI en la máquina que publica (Node.js 20 o superior, y `npm install` ya ejecutado):
+
+```bash
+npx firebase login
+```
+
+4. Cree los seis secretos. La CLI pide el valor y no lo imprime. Para `FIREBASE_PRIVATE_KEY`, escriba la clave en un archivo temporal de una sola línea, con los saltos como `\n`, y bórrelo enseguida. Sustituya `su-proyecto` por el id real:
+
+```bash
+npx firebase apphosting:secrets:set NEXT_PUBLIC_FIREBASE_API_KEY --project su-proyecto
+npx firebase apphosting:secrets:set NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN --project su-proyecto
+npx firebase apphosting:secrets:set NEXT_PUBLIC_FIREBASE_PROJECT_ID --project su-proyecto
+npx firebase apphosting:secrets:set FIREBASE_PROJECT_ID --project su-proyecto
+npx firebase apphosting:secrets:set FIREBASE_CLIENT_EMAIL --project su-proyecto
+npx firebase apphosting:secrets:set FIREBASE_PRIVATE_KEY --data-file ./clave-temporal.txt --project su-proyecto
+rm -f ./clave-temporal.txt
+```
+
+Si la CLI ofrece editar `apphosting.yaml`, los nombres ya están. No los duplique.
+
+5. Cree el backend y publique. El directorio de la app es la raíz de este repositorio (`/`). La región para Santa Cruz es `southamerica-east1`.
+
+En la consola, el despliegue se repite solo al empujar a GitHub:
+
+- [Firebase console](https://console.firebase.google.com/) → **Hosting & Serverless** → **App Hosting** → **Get started**.
+- Región: `southamerica-east1`.
+- Repositorio: `vegamorenomiguelangel1-pixel/startup-aura`.
+- Directorio raíz: `/`.
+- Rama en vivo: `main`, cuando este cambio ya esté en `main`. Para probar antes, use la rama `cursor/aura-service-mvp-d7fd`.
+- Id del backend: `aura`.
+- Asocie la app web del mismo proyecto.
+- Deje activos los despliegues automáticos y confirme.
+
+Desde esta máquina, sin conectar GitHub:
+
+```bash
+npm run deploy -- su-proyecto
+```
+
+Publica el backend `aura` y las reglas de Firestore. `.firebaserc` sigue en `demo-aura` a propósito (es el emulador); el comando exige el id real y no despliega si no hay `npx firebase login`. La primera vez, si el backend no existe, la CLI pide crearlo: región `southamerica-east1`, directorio `.`.
+
+6. Si el despliegue dice que no puede leer un secreto, conceda acceso y vuelva a publicar:
+
+```bash
+npx firebase apphosting:secrets:grantaccess NEXT_PUBLIC_FIREBASE_API_KEY,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,NEXT_PUBLIC_FIREBASE_PROJECT_ID,FIREBASE_PROJECT_ID,FIREBASE_CLIENT_EMAIL,FIREBASE_PRIVATE_KEY --backend aura --project su-proyecto
+npm run deploy -- su-proyecto
+```
+
+7. En **Authentication → Settings → Authorized domains**, añada el dominio `hosted.app` del backend, por ejemplo `aura--su-proyecto.southamerica-east1.hosted.app`.
+8. En una máquina de confianza, con un `.env` de producción y sin variables de emulador, cree las cuentas de demostración:
+
+```bash
+npm run seed
+```
+
+9. Abra la URL que muestra el backend en la consola. El primer despliegue puede tardar varios minutos. Ingrese con una cuenta de la tabla de abajo.
+
+Un dominio propio se añade después en el backend (**Custom domain**). La URL `hosted.app` ya se abre desde cualquier dispositivo.
+
 ## Cuentas de demostración
 
 Contraseña de todas: `Aura2026!`
@@ -75,7 +163,7 @@ Contraseña de todas: `Aura2026!`
 | Empleado (compañero de apoyo) | Luis Peña | `luis.pena@auraservicio.com` |
 | Cliente | Camila Rojas | `camila.rojas@auraservicio.com` |
 
-`npm run seed` crea cada persona en Firebase Authentication y su perfil en Firestore (`users/{uid}`), con el rol en el documento y en un custom claim `role`. Si la cuenta ya existe, no cambia la contraseña ni pisa un perfil editado. El botón **Usar** de la pantalla de ingreso rellena el formulario. Son personas ficticias, no el equipo fundador.
+`npm run seed` crea cada persona en Firebase Authentication y su perfil en Firestore (`users/{uid}`), con el rol en el documento y en un custom claim `role`. Si la cuenta ya existe, no cambia la contraseña ni pisa un perfil editado. En el ingreso, **Probar con una cuenta de demostración** rellena el formulario. Son personas ficticias, no el equipo fundador.
 
 Para volver a crear los tres servicios de ejemplo, borre los documentos de la colección `services` en la consola de Firestore y ejecute `npm run seed` otra vez. Con el emulador basta reiniciar `npm run dev:emulator`: cada arranque empieza vacío y siembra de nuevo.
 
@@ -167,10 +255,11 @@ Ese bosquejo no está activo. El archivo que hay que publicar es `firestore.rule
 | `npm run dev:emulator` | Emuladores locales, siembra y servidor, sin proyecto remoto |
 | `npm run lint` | ESLint |
 | `npm run build` | Compila la aplicación |
+| `npm run deploy -- su-proyecto` | Publica App Hosting y las reglas de Firestore. Exige login y el id real del proyecto |
 
 ## Fuera de esta versión
 
-Pagos, WhatsApp, anuncios, seguimiento GPS, aplicación nativa y un plan de facturación de Firebase más allá de Authentication y Firestore.
+Pagos, WhatsApp, anuncios, seguimiento GPS y aplicación nativa. Publicar el panel sí usa App Hosting, y ese producto pide el plan Blaze.
 
 ## Accesibilidad
 
