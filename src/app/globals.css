@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-atkinson), "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --color-ink: #1c1915;
+  --color-muted: #5c5348;
+  --color-cream: #f3eee4;
+  --color-paper: #fffdf9;
+  --color-teal: #0e5c59;
+  --color-teal-dark: #083f3d;
+  --color-foam: #e4f3f0;
+  --color-clay: #9a3412;
+  --color-clay-soft: #fde8df;
+  --color-sand: #e7dccb;
+  --color-line: #e3d7c6;
+  --color-moss: #145c38;
+  --color-moss-soft: #e6f5ec;
+  --color-gold: #6f470c;
+  --color-gold-soft: #f8efd8;
+}
+
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  background:
+    radial-gradient(900px 420px at -10% -20%, #f6e2cf 0%, transparent 55%),
+    radial-gradient(720px 380px at 110% -10%, #d7eee9 0%, transparent 50%),
+    var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 50;
+  border-radius: 0.75rem;
+  background: var(--color-ink);
+  color: white;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-clay);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
