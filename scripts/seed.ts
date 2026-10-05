@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from "../lib/firebase";
 import { boliviaDate } from "../lib/format";
 import { loadEnvFile } from "../lib/load-env";
 import { DEMO_ACCOUNTS, DEMO_DUO, OFFER } from "../lib/offer";
-import type { AppRole } from "../lib/labels";
+import { isRole, type AppRole } from "../lib/labels";
 
 loadEnvFile();
 
@@ -43,15 +43,19 @@ async function main() {
     const isEmployee = role === "EMPLOYEE";
     const ref = adminDb().collection("users").doc(authUser.uid);
     const existing = await ref.get();
-    if (!existing.exists) {
-      await ref.set({
-        name: account.name,
-        email: account.email,
-        role,
-        phone: account.phone,
-        duoId: isEmployee ? DEMO_DUO.id : null,
-        duoRole: account.duoRole,
-      });
+    const storedRole = existing.data()?.role;
+    if (!existing.exists || !isRole(String(storedRole ?? ""))) {
+      await ref.set(
+        {
+          name: account.name,
+          email: account.email,
+          role,
+          phone: account.phone,
+          duoId: isEmployee ? DEMO_DUO.id : null,
+          duoRole: account.duoRole,
+        },
+        { merge: true },
+      );
     }
     const profile = (await ref.get()).data();
     const claimRole = profile?.role ?? role;

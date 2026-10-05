@@ -6,6 +6,10 @@ Panel web para gestionar el **Servicio Dúo Inclusivo** de [Aura](https://aurase
 
 Un dúo —una persona con discapacidad o su tutor, junto a un compañero de apoyo— realiza limpiezas de 4 a 5 horas por **250 Bs**. Esta versión guarda usuarios, dúos y servicios en **Firebase** (Authentication + Firestore), no en la máquina de quien desarrolla.
 
+## En línea
+
+El panel público está en [https://startup-aura.vercel.app](https://startup-aura.vercel.app) (Vercel, HTTPS). Se abre desde cualquier dispositivo. El proyecto de Firebase es **aura-servicio** (`aura-servicio.firebaseapp.com`). Las cuentas de demostración de más abajo ya existen en Authentication y Firestore de ese proyecto.
+
 ## Qué se usa de Firebase
 
 - **Authentication**, con el proveedor Correo/contraseña. El formulario de ingreso sigue en el servidor: valida la contraseña con Firebase y guarda una cookie `httpOnly` de sesión.
@@ -16,7 +20,7 @@ Los roles siguen siendo cliente, empleado y administración. La interfaz sigue e
 
 ## Proyecto de Firebase
 
-1. Cree un proyecto en [Firebase console](https://console.firebase.google.com/). Authentication y Firestore funcionan en el plan Spark. Publicar la aplicación en una URL pública exige el plan **Blaze**; los pasos están en «Publicar en una URL pública».
+1. El proyecto en uso es **aura-servicio**. Para uno nuevo, créelo en [Firebase console](https://console.firebase.google.com/). Authentication y Firestore funcionan en el plan Spark. La URL pública de este panel está en Vercel; App Hosting, si se usa, pide el plan **Blaze**. Los pasos están en «Publicar en una URL pública».
 2. En **Authentication → Sign-in method**, active **Correo electrónico/contraseña**. No exija verificación de correo.
 3. En **Firestore Database**, cree la base en **modo de producción**.
 4. En **Project settings → General**, registre una app web y copie la configuración.
@@ -66,11 +70,13 @@ Hace falta Java (el emulador de Firestore lo usa). El comando levanta Authentica
 
 ## Publicar en una URL pública
 
-El panel se publica con **Firebase App Hosting** (Next.js en Cloud Build, servido por HTTPS). Cualquier dispositivo abre la URL que entrega Firebase. La forma es:
+La dirección en vivo es [https://startup-aura.vercel.app](https://startup-aura.vercel.app). El proyecto de Vercel se llama `startup-aura` y el de Firebase, `aura-servicio`. Las variables de abajo están en Vercel (producción, vista previa y desarrollo). Los valores no se commitean.
 
-`https://aura--SU-PROYECTO.southamerica-east1.hosted.app`
+Si más adelante se publica con **Firebase App Hosting**, la forma de la URL es:
 
-`aura` es el id del backend en `firebase.json`. La consola muestra la dirección exacta al terminar el primer despliegue. Este repositorio no incluye una URL en vivo: hace falta el proyecto de Firebase de Aura, una cuenta de Google con permiso sobre ese proyecto y los secretos de abajo. No se commitean.
+`https://aura--aura-servicio.southamerica-east1.hosted.app`
+
+`aura` es el id del backend en `firebase.json`. App Hosting pide el plan **Blaze**. Vercel no lo pide: Authentication y Firestore siguen en el proyecto `aura-servicio`.
 
 ### Variables de producción
 
@@ -79,7 +85,7 @@ Son las de `.env.example`. En App Hosting se guardan en Cloud Secret Manager, co
 | Variable | Cuándo hace falta | Origen |
 | --- | --- | --- |
 | `NEXT_PUBLIC_FIREBASE_API_KEY` | Compilación y ejecución. Next.js la incrusta al compilar. | App web → `apiKey` |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Compilación y ejecución | App web → `authDomain` (`su-proyecto.firebaseapp.com`) |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Compilación y ejecución | App web → `authDomain` (`aura-servicio.firebaseapp.com`) |
 | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Compilación y ejecución | App web → `projectId` |
 | `FIREBASE_PROJECT_ID` | Compilación y ejecución | El mismo `projectId` |
 | `FIREBASE_CLIENT_EMAIL` | Ejecución (Admin SDK) | Cuenta de servicio → `client_email` |
@@ -163,7 +169,7 @@ Contraseña de todas: `Aura2026!`
 | Empleado (compañero de apoyo) | Luis Peña | `luis.pena@auraservicio.com` |
 | Cliente | Camila Rojas | `camila.rojas@auraservicio.com` |
 
-`npm run seed` crea cada persona en Firebase Authentication y su perfil en Firestore (`users/{uid}`), con el rol en el documento y en un custom claim `role`. Si la cuenta ya existe, no cambia la contraseña ni pisa un perfil editado. En el ingreso, **Probar con una cuenta de demostración** rellena el formulario. Son personas ficticias, no el equipo fundador.
+`npm run seed` crea cada persona en Firebase Authentication y su perfil en Firestore (`users/{uid}`), con el rol en el documento y en un custom claim `role`. Si la cuenta ya existe, no cambia la contraseña. Si el perfil ya tiene un rol válido (`ADMIN`, `EMPLOYEE` o `CLIENT`), no lo pisa. Si el rol guardado no es uno de esos, lo corrige al de la cuenta de demostración. En el ingreso, **Probar con una cuenta de demostración** rellena el formulario. Son personas ficticias, no el equipo fundador.
 
 Para volver a crear los tres servicios de ejemplo, borre los documentos de la colección `services` en la consola de Firestore y ejecute `npm run seed` otra vez. Con el emulador basta reiniciar `npm run dev:emulator`: cada arranque empieza vacío y siembra de nuevo.
 
@@ -259,7 +265,7 @@ Ese bosquejo no está activo. El archivo que hay que publicar es `firestore.rule
 
 ## Fuera de esta versión
 
-Pagos, WhatsApp, anuncios, seguimiento GPS y aplicación nativa. Publicar el panel sí usa App Hosting, y ese producto pide el plan Blaze.
+Pagos, WhatsApp, anuncios, seguimiento GPS y aplicación nativa. El panel público está en Vercel. App Hosting queda como alternativa y pide el plan Blaze.
 
 ## Accesibilidad
 
